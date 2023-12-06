@@ -5,9 +5,7 @@ import pandas as pd
 from rich.logging import RichHandler
 
 from annotated_validator.pandas_validators import RequiredColumns
-from annotated_validator.validator import (
-    validate_annotated,
-)
+from annotated_validator.validator import validate_annotated
 
 logger = logging.getLogger(__name__)
 
