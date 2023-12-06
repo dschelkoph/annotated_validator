@@ -56,7 +56,7 @@ Numbers(1, -1)
 ## Pydantic Model
 Use a model validator to use additional validation metadata in addtion to what Pydantic offers:
 
-```
+```python
 from typing import Self, Annotated
 
 from pydantic import BaseModel, model_validator, Field
