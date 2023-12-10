@@ -3,19 +3,26 @@
 import functools
 import inspect
 import logging
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Any, NamedTuple, TypeAlias, get_type_hints
 
+from annotated_types import BaseMetadata, GroupedMetadata
+
+from .annotated_types_validators import get_at_validators
 from .exceptions.validator import ValidatorError
 
 logger = logging.getLogger(__name__)
 
 
-class Validator(ABC):
+class BaseMetaValidator(BaseMetadata):
     """Base Class for all Validation Classes.
 
     Metadata is checked to see if it of type `Validator` in order to be used for validation.
     """
+
+    @staticmethod
+    def at_validate(metadata: "BaseMetaValidator", value) -> None | ExceptionGroup[ValidatorError]:
+        return metadata.validate(value)
 
     @abstractmethod
     def validate(self, value) -> None | ExceptionGroup[ValidatorError]:
@@ -31,10 +38,10 @@ class ParamData(NamedTuple):
     """Type annotation of a parameter."""
 
 
-ValidationExceptionGroup: TypeAlias = ExceptionGroup[ValidatorError]
+ValidatorExceptionGroup: TypeAlias = ExceptionGroup[ValidatorError]
 """All exceptions from a single validator are contained into this exeception group."""
 
-ParameterExceptionGroup: TypeAlias = ExceptionGroup[ValidationExceptionGroup]
+ParameterExceptionGroup: TypeAlias = ExceptionGroup[ValidatorExceptionGroup]
 """All exceptions for a parameter (can include errors from multiple validators) are contained in this exception group."""
 
 
@@ -51,12 +58,27 @@ def annotated_validator(parameters: dict[str, ParamData]) -> list[ParameterExcep
             logger.debug("%s doesn't contain metadata, skipping validation.", param_name)
             continue
         validation_exception_groups = []
-        for validator in param_metadata:
-            if not isinstance(validator, Validator):
-                logger.debug("Metadata was not an instance of the `Validator` type, skipped.")
+        for metadata in param_metadata:
+            if not isinstance(metadata, BaseMetaValidator | BaseMetadata | GroupedMetadata):
+                logger.debug(
+                    "Metadata: %s was not an instance of the `Validator` or `annotated_types.BaseMetadata`.",
+                    metadata,
+                )
                 continue
-            if errors := validator.validate(param_data.value):
-                validation_exception_groups.append(errors)
+            # this is metadata from `annotated_types` and should be validated
+            if isinstance(metadata, BaseMetaValidator):
+                if errors := metadata.validate(param_data.value):
+                    validation_exception_groups.append(errors)
+            elif isinstance(metadata, BaseMetadata | GroupedMetadata):
+                at_validators = get_at_validators(metadata)
+                errors = []
+                for at_validator in at_validators:
+                    at_validator_result = at_validator(metadata, param_data.value)
+                    errors.extend(at_validator_result)
+                if errors:
+                    validation_exception_groups.append(
+                        ExceptionGroup(f"`{metadata.__class__.__name__}` Validation Errors", errors)
+                    )
         if validation_exception_groups:
             parameter_exeception_groups.append(
                 ExceptionGroup(f"`{param_name}` Validation Errors", validation_exception_groups)

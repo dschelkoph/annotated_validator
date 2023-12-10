@@ -6,11 +6,11 @@ import pandas as pd
 
 from ..exceptions.pandas import RequiredColumnDoesntExistError, RequiredColumnTypeMismatchError
 from ..exceptions.validator import ValidatorError
-from ..validator import Validator
+from ..validator import BaseMetaValidator
 
 
 @dataclass
-class RequiredColumns(Validator):
+class RequiredColumns(BaseMetaValidator):
     """Validates that a Pandas Dataframe has the required columns with the correct types."""
 
     column_map: dict[str, str]

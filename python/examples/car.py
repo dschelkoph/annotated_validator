@@ -2,9 +2,9 @@ import logging
 from dataclasses import dataclass
 from typing import Annotated
 
+import annotated_types as at
 from rich.logging import RichHandler
 
-from annotated_validator.number_validators import NumberRange
 from annotated_validator.validator import ValidateAnnotated
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class Car(ValidateAnnotated):
     make: str
     model: str
-    doors: Annotated[int | float, NumberRange(low=1, high=8)]
+    doors: Annotated[int | float, at.Interval(ge=1, le=8)]
 
 
 def main():
