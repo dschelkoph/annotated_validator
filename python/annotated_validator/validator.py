@@ -65,16 +65,16 @@ def annotated_validator(parameters: dict[str, ParamData]) -> list[ParameterExcep
                     metadata,
                 )
                 continue
-            # this is metadata from `annotated_types` and should be validated
             if isinstance(metadata, BaseMetaValidator):
                 if errors := metadata.validate(param_data.value):
                     validation_exception_groups.append(errors)
+            # this is metadata from `annotated_types` and should be validated
             elif isinstance(metadata, BaseMetadata | GroupedMetadata):
                 at_validators = get_at_validators(metadata)
                 errors = []
-                for at_validator in at_validators:
-                    at_validator_result = at_validator(metadata, param_data.value)
-                    errors.extend(at_validator_result)
+                for at_metadata, at_validator in at_validators:
+                    at_validator_errors = at_validator(at_metadata, param_data.value)
+                    errors.extend(at_validator_errors)
                 if errors:
                     validation_exception_groups.append(
                         ExceptionGroup(f"`{metadata.__class__.__name__}` Validation Errors", errors)

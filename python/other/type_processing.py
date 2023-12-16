@@ -19,6 +19,22 @@ def get_comparable_type(py_type: type) -> type:
     raise ValueError()
 
 
+class TypeData:
+    origin: type
+    arguments: tuple
+    metadata: tuple
+    valid_types: type
+
+def get_type_data(py_type: type) -> dict[type, TypeData]:
+    origin = get_origin(py_type)
+    if not origin:
+        return {py_type: TypeData(arguments=(), metadata=())}
+    if origin.__name__ not in {"Union", "UnionType", "Annotated"}:
+        return {py_type: TypeData(arguments=get_args(py_type), metadata=())}
+    if origin.__name__ in "Annotated":
+
+
+
 @dataclass(slots=True)
 class TypeAnnotation:
     origin: type

@@ -1,15 +1,29 @@
-from typing import Protocol
+import logging
+from typing import NamedTuple, Protocol
 
 import annotated_types as at
 
-from ..exceptions.annotated_types import NotSupportedAnnotatedTypeError
-from ..exceptions.validator import ValidatorError
-from .comparison import ge_validator, gt_validator, le_validator, lt_validator
+from ..exceptions.annotated_types import AtValidatorError
+from .length_comparison import min_len_validator
+from .numerical_comparison import (
+    ge_validator,
+    gt_validator,
+    le_validator,
+    lt_validator,
+    multiple_of_validator,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class BaseValidator(Protocol):
-    def __call__(self, metadata: at.BaseMetadata, value) -> list[ValidatorError]:
+    def __call__(self, metadata: at.BaseMetadata, value) -> list[AtValidatorError]:
         ...
+
+
+def unsuported_validator(metadata: at.BaseMetadata, value) -> list[AtValidatorError]:
+    logger.debug("%s (Value: %s) doesn't have an implemented validator.")
+    return []
 
 
 SUPPORTED_ANNOTATED_TYPES: dict[at.BaseMetadata, BaseValidator] = {
@@ -17,22 +31,21 @@ SUPPORTED_ANNOTATED_TYPES: dict[at.BaseMetadata, BaseValidator] = {
     at.Gt: gt_validator,
     at.Le: le_validator,
     at.Lt: lt_validator,
+    at.MultipleOf: multiple_of_validator,
+    at.MinLen: min_len_validator,
 }
 
 
-def get_at_validators(metadata: at.BaseMetadata) -> list[BaseValidator]:
+class UnpackedBaseMetadata(NamedTuple):
+    py_type: at.BaseMetadata
+    validator: BaseValidator
+
+
+def get_at_validators(metadata: at.BaseMetadata) -> list[UnpackedBaseMetadata]:
     metadata_iter = [metadata] if not isinstance(metadata, at.GroupedMetadata) else metadata
 
-    exceptions = []
-    validators = []
+    unpacked_metadata = []
     for sub_metadata in metadata_iter:
-        if (sub_metadata_type := type(sub_metadata)) not in SUPPORTED_ANNOTATED_TYPES:
-            exceptions.append(NotSupportedAnnotatedTypeError(sub_metadata_type))
-            continue
-        validators.append(SUPPORTED_ANNOTATED_TYPES[sub_metadata_type])
-    if exceptions:
-        raise ExceptionGroup(
-            f"Errors finding validators for `GroupedMetadata`: {metadata}", exceptions
-        )
-    print(validators)
-    return validators
+        validator = SUPPORTED_ANNOTATED_TYPES.get(type(sub_metadata), unsuported_validator)
+        unpacked_metadata.append(UnpackedBaseMetadata(py_type=sub_metadata, validator=validator))
+    return unpacked_metadata
